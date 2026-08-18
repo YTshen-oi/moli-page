@@ -113,11 +113,37 @@
     spawnSpark(e.clientX, e.clientY);
   });
 
+  /* ===== 液态玻璃卡片：鼠标跟随流动高光 ===== */
+  function initLiquidGlass() {
+    // 触屏设备不绑定 mousemove，保持静态高光，避免手机卡顿
+    if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
+
+    var cards = document.querySelectorAll(".card");
+    if (!cards.length) return;
+
+    for (var i = 0; i < cards.length; i++) {
+      (function (card) {
+        card.addEventListener("mousemove", function (e) {
+          var rect = card.getBoundingClientRect();
+          var x = e.clientX - rect.left;
+          var y = e.clientY - rect.top;
+          var px = ((x / rect.width) * 100).toFixed(1) + "%";
+          var py = ((y / rect.height) * 100).toFixed(1) + "%";
+          card.style.setProperty("--glow-pos", px + " " + py);
+        });
+        card.addEventListener("mouseleave", function () {
+          card.style.setProperty("--glow-pos", "50% 50%");
+        });
+      })(cards[i]);
+    }
+  }
+
   /* ===== 启动 ===== */
   document.addEventListener("DOMContentLoaded", function () {
     buildStars();
     typeWriter();
     updateClock();
     setInterval(updateClock, 1000);
+    initLiquidGlass();
   });
 })();

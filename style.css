@@ -168,27 +168,62 @@ body::before {
 
 .card {
   position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 10px;
   padding: 28px 26px;
-  border-radius: 20px;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 1.75rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.08);
   text-align: left;
   text-decoration: none;
   color: var(--text);
   transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
 }
 
+/* 鼠标跟随流动高光（液态玻璃灵魂） */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(600px circle at var(--glow-pos, 50% 50%), rgba(255, 255, 255, 0.28), transparent 42%);
+  opacity: 0.6;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+}
+
+/* 顶部扫光：模拟玻璃上缘反光与厚度 */
+.card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46%;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+/* 内容层抬高，确保可读可点 */
+.card-icon,
+.card-title,
+.card-desc {
+  position: relative;
+  z-index: 2;
+}
+
 a.card:hover {
   transform: translateY(-6px);
-  border-color: rgba(200, 210, 255, 0.45);
-  box-shadow: 0 22px 55px rgba(0, 0, 0, 0.4), 0 0 34px rgba(180, 195, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 18px 48px rgba(31, 38, 135, 0.42), 0 0 40px rgba(200, 210, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .card-icon {
@@ -217,6 +252,7 @@ a.card:hover {
   font-size: 1.3rem;
   color: var(--silver);
   opacity: 0.7;
+  z-index: 2;
 }
 
 /* ===== 页脚 ===== */
