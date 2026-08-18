@@ -299,26 +299,48 @@ a.card:hover {
   box-shadow: 0 18px 48px rgba(31, 38, 135, 0.42), 0 0 40px rgba(200, 210, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.modal-overlay {
+/* 主界面淡出 */
+.shell {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.shell.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* 全屏视图容器 */
+.book-view {
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 24px;
   background: rgba(5, 10, 25, 0.6);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  animation: modalFadeIn 0.25s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-.modal {
+.book-view.show {
+  display: flex;
+  animation: bookFadeIn 0.4s ease;
+}
+
+.book-view.leaving {
+  display: flex;
+  animation: bookFadeOut 0.4s ease forwards;
+}
+
+/* 视图面板（目录 / 正文共用液态玻璃风） */
+.book-main,
+.book-reader {
+  display: none;
   position: relative;
   width: 100%;
   max-width: 720px;
   max-height: 82vh;
-  display: flex;
   flex-direction: column;
   border-radius: 1.5rem;
   background: rgba(255, 255, 255, 0.10);
@@ -327,11 +349,17 @@ a.card:hover {
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   overflow: hidden;
-  animation: modalRise 0.25s ease;
+}
+
+.book-main.show,
+.book-reader.show {
+  display: flex;
+  animation: bookFadeIn 0.4s ease;
 }
 
 /* 顶部扫光（液态玻璃高光） */
-.modal::before {
+.book-main::before,
+.book-reader::before {
   content: "";
   position: absolute;
   top: 0;
@@ -344,17 +372,17 @@ a.card:hover {
   z-index: 1;
 }
 
-@keyframes modalFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes modalRise {
+@keyframes bookFadeIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.modal-header {
+@keyframes bookFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(12px); }
+}
+
+.book-topbar {
   position: relative;
   z-index: 2;
   display: flex;
@@ -365,7 +393,7 @@ a.card:hover {
   flex-shrink: 0;
 }
 
-.modal-title {
+.book-title {
   flex: 1;
   font-size: 1.15rem;
   font-weight: 700;
@@ -376,9 +404,9 @@ a.card:hover {
   white-space: nowrap;
 }
 
-.modal-back {
+.book-btn {
   flex-shrink: 0;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.08);
@@ -389,32 +417,12 @@ a.card:hover {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.modal-back:hover {
+.book-btn:hover {
   background: rgba(255, 255, 255, 0.16);
   color: var(--text);
 }
 
-.modal-close {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--silver);
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  font-family: var(--font);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-
-.modal-list {
+.book-list {
   position: relative;
   z-index: 2;
   flex: 1;
@@ -426,7 +434,7 @@ a.card:hover {
   gap: 10px;
 }
 
-.modal-item {
+.book-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -442,31 +450,31 @@ a.card:hover {
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.modal-item:hover {
+.book-item:hover {
   background: rgba(255, 255, 255, 0.13);
   border-color: rgba(200, 210, 255, 0.4);
   transform: translateX(4px);
 }
 
-.modal-item-title {
+.book-item-title {
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.03em;
 }
 
-.modal-item-meta {
+.book-item-meta {
   font-size: 0.8rem;
   color: var(--silver);
   letter-spacing: 0.08em;
 }
 
-.modal-item-desc {
+.book-item-desc {
   font-size: 0.88rem;
   color: var(--muted);
   line-height: 1.6;
 }
 
-.modal-body {
+.book-body {
   position: relative;
   z-index: 2;
   flex: 1;
@@ -478,29 +486,29 @@ a.card:hover {
   color: var(--text);
 }
 
-.modal-body h1 {
+.book-body h1 {
   font-size: 1.4rem;
   margin: 0 0 12px;
   line-height: 1.4;
 }
 
-.modal-body h2 {
+.book-body h2 {
   font-size: 1.18rem;
   margin: 22px 0 10px;
   line-height: 1.4;
 }
 
-.modal-body h3 {
+.book-body h3 {
   font-size: 1.05rem;
   margin: 18px 0 8px;
   line-height: 1.4;
 }
 
-.modal-body p {
+.book-body p {
   margin: 0 0 12px;
 }
 
-.modal-body blockquote {
+.book-body blockquote {
   margin: 12px 0;
   padding: 10px 16px;
   border-left: 3px solid rgba(200, 210, 255, 0.5);
@@ -509,17 +517,17 @@ a.card:hover {
   color: var(--silver);
 }
 
-.modal-body ul,
-.modal-body ol {
+.book-body ul,
+.book-body ol {
   margin: 8px 0 12px;
   padding-left: 22px;
 }
 
-.modal-body li {
+.book-body li {
   margin: 4px 0;
 }
 
-.modal-body code {
+.book-body code {
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.88em;
   background: rgba(255, 255, 255, 0.12);
@@ -528,7 +536,7 @@ a.card:hover {
   color: #e8ecff;
 }
 
-.modal-body pre {
+.book-body pre {
   margin: 12px 0;
   padding: 14px 16px;
   border-radius: 0.8rem;
@@ -537,7 +545,7 @@ a.card:hover {
   overflow-x: auto;
 }
 
-.modal-body pre code {
+.book-body pre code {
   background: transparent;
   padding: 0;
   font-size: 0.85rem;
@@ -545,32 +553,32 @@ a.card:hover {
   color: #d7dcff;
 }
 
-.modal-body hr {
+.book-body hr {
   border: none;
   border-top: 1px solid rgba(200, 210, 255, 0.2);
   margin: 20px 0;
 }
 
-.modal-body table {
+.book-body table {
   width: 100%;
   border-collapse: collapse;
   margin: 12px 0;
   font-size: 0.9rem;
 }
 
-.modal-body th,
-.modal-body td {
+.book-body th,
+.book-body td {
   border: 1px solid rgba(200, 210, 255, 0.2);
   padding: 8px 12px;
   text-align: left;
 }
 
-.modal-body th {
+.book-body th {
   background: rgba(255, 255, 255, 0.08);
   color: var(--silver);
 }
 
-.modal-body a {
+.book-body a {
   color: var(--silver);
   text-decoration: underline;
 }
@@ -587,20 +595,21 @@ a.card:hover {
   .clock-card {
     padding: 22px 28px;
   }
-  .modal-overlay {
+  .book-view {
     padding: 12px;
   }
-  .modal {
+  .book-main,
+  .book-reader {
     max-width: 92vw;
     border-radius: 1.2rem;
   }
-  .modal-header {
+  .book-topbar {
     padding: 14px 16px;
   }
-  .modal-list {
+  .book-list {
     padding: 10px;
   }
-  .modal-body {
+  .book-body {
     padding: 16px 18px 26px;
   }
 }

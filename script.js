@@ -138,66 +138,79 @@
     }
   }
 
-  /* ===== 人生小书弹窗 ===== */
-  function initBookModal() {
+  /* ===== 人生小书全屏视图 ===== */
+  function initBookView() {
     var card = document.getElementById("book-card");
     if (!card || typeof window.BOOK_DATA === "undefined" || !window.BOOK_DATA.length) return;
 
     var data = window.BOOK_DATA;
-    var overlay = null;
-    var modal = null;
+    var shell = document.querySelector(".shell");
+    var view = null;
+    var mainEl = null;
+    var readerEl = null;
     var listEl = null;
     var bodyEl = null;
-    var titleEl = null;
-    var backBtn = null;
+    var readerTitleEl = null;
+    var backHomeBtn = null;
+    var backListBtn = null;
+    var isOpen = false;
 
     function build() {
-      overlay = document.createElement("div");
-      overlay.className = "modal-overlay";
+      view = document.createElement("div");
+      view.className = "book-view";
 
-      modal = document.createElement("div");
-      modal.className = "modal";
+      mainEl = document.createElement("div");
+      mainEl.className = "book-main";
 
-      var header = document.createElement("div");
-      header.className = "modal-header";
+      var mainTopbar = document.createElement("div");
+      mainTopbar.className = "book-topbar";
 
-      backBtn = document.createElement("button");
-      backBtn.type = "button";
-      backBtn.className = "modal-back";
-      backBtn.textContent = "← 返回目录";
-      backBtn.style.display = "none";
-      header.appendChild(backBtn);
+      backHomeBtn = document.createElement("button");
+      backHomeBtn.type = "button";
+      backHomeBtn.className = "book-btn";
+      backHomeBtn.textContent = "← 返回主页";
+      mainTopbar.appendChild(backHomeBtn);
 
-      titleEl = document.createElement("div");
-      titleEl.className = "modal-title";
-      titleEl.textContent = "人生小书";
-      header.appendChild(titleEl);
-
-      var closeBtn = document.createElement("button");
-      closeBtn.type = "button";
-      closeBtn.className = "modal-close";
-      closeBtn.setAttribute("aria-label", "关闭");
-      closeBtn.textContent = "✕";
-      header.appendChild(closeBtn);
+      var mainTitle = document.createElement("div");
+      mainTitle.className = "book-title";
+      mainTitle.textContent = "人生小书";
+      mainTopbar.appendChild(mainTitle);
 
       listEl = document.createElement("div");
-      listEl.className = "modal-list";
+      listEl.className = "book-list";
+
+      mainEl.appendChild(mainTopbar);
+      mainEl.appendChild(listEl);
+
+      readerEl = document.createElement("div");
+      readerEl.className = "book-reader";
+
+      var readerTopbar = document.createElement("div");
+      readerTopbar.className = "book-topbar";
+
+      backListBtn = document.createElement("button");
+      backListBtn.type = "button";
+      backListBtn.className = "book-btn";
+      backListBtn.textContent = "← 返回目录";
+      readerTopbar.appendChild(backListBtn);
+
+      readerTitleEl = document.createElement("div");
+      readerTitleEl.className = "book-title";
+      readerTitleEl.textContent = "";
+      readerTopbar.appendChild(readerTitleEl);
 
       bodyEl = document.createElement("div");
-      bodyEl.className = "modal-body";
-      bodyEl.style.display = "none";
+      bodyEl.className = "book-body";
 
-      modal.appendChild(header);
-      modal.appendChild(listEl);
-      modal.appendChild(bodyEl);
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
+      readerEl.appendChild(readerTopbar);
+      readerEl.appendChild(bodyEl);
 
-      closeBtn.addEventListener("click", close);
-      overlay.addEventListener("click", function (e) {
-        if (e.target === overlay) close();
-      });
-      backBtn.addEventListener("click", showList);
+      view.appendChild(mainEl);
+      view.appendChild(readerEl);
+      document.body.appendChild(view);
+
+      backHomeBtn.addEventListener("click", close);
+      backListBtn.addEventListener("click", showList);
     }
 
     function renderList() {
@@ -206,18 +219,18 @@
         (function (vol) {
           var item = document.createElement("button");
           item.type = "button";
-          item.className = "modal-item";
+          item.className = "book-item";
 
           var name = document.createElement("div");
-          name.className = "modal-item-title";
+          name.className = "book-item-title";
           name.textContent = vol.title;
 
           var meta = document.createElement("div");
-          meta.className = "modal-item-meta";
+          meta.className = "book-item-meta";
           meta.textContent = vol.date;
 
           var desc = document.createElement("div");
-          desc.className = "modal-item-desc";
+          desc.className = "book-item-desc";
           desc.textContent = vol.desc;
 
           item.appendChild(name);
@@ -230,41 +243,59 @@
     }
 
     function showList() {
-      listEl.style.display = "";
-      bodyEl.style.display = "none";
-      backBtn.style.display = "none";
-      titleEl.textContent = "人生小书";
+      readerEl.classList.remove("show");
+      mainEl.classList.add("show");
       listEl.scrollTop = 0;
     }
 
     function showVolume(vol) {
-      listEl.style.display = "none";
-      bodyEl.style.display = "";
-      backBtn.style.display = "";
-      titleEl.textContent = vol.title;
+      readerTitleEl.textContent = vol.title;
       var html = vol.html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/, "");
       bodyEl.innerHTML = html;
       bodyEl.scrollTop = 0;
+      mainEl.classList.remove("show");
+      readerEl.classList.add("show");
     }
 
     function open() {
-      if (!overlay) {
+      if (!view) {
         build();
         renderList();
       }
-      overlay.style.display = "flex";
-      document.body.style.overflow = "hidden";
-      showList();
+      isOpen = true;
+      shell.classList.add("fade-out");
+      setTimeout(function () {
+        if (!isOpen) return;
+        shell.style.display = "none";
+        view.classList.remove("leaving");
+        view.classList.add("show");
+        mainEl.classList.add("show");
+        readerEl.classList.remove("show");
+        listEl.scrollTop = 0;
+        document.body.style.overflow = "hidden";
+      }, 400);
     }
 
     function close() {
-      if (!overlay) return;
-      overlay.style.display = "none";
+      if (!view) return;
+      isOpen = false;
+      view.classList.remove("show");
+      view.classList.add("leaving");
       document.body.style.overflow = "";
+      shell.style.display = "";
+      void shell.offsetWidth;
+      shell.classList.remove("fade-out");
+      setTimeout(function () {
+        view.classList.remove("leaving");
+      }, 400);
     }
 
     function onKeydown(e) {
-      if (e.key === "Escape" || e.key === "Esc") {
+      if (e.key !== "Escape" && e.key !== "Esc") return;
+      if (!isOpen) return;
+      if (readerEl.classList.contains("show")) {
+        showList();
+      } else {
         close();
       }
     }
@@ -280,6 +311,6 @@
     updateClock();
     setInterval(updateClock, 1000);
     initLiquidGlass();
-    initBookModal();
+    initBookView();
   });
 })();
