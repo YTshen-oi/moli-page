@@ -138,6 +138,141 @@
     }
   }
 
+  /* ===== 人生小书弹窗 ===== */
+  function initBookModal() {
+    var card = document.getElementById("book-card");
+    if (!card || typeof window.BOOK_DATA === "undefined" || !window.BOOK_DATA.length) return;
+
+    var data = window.BOOK_DATA;
+    var overlay = null;
+    var modal = null;
+    var listEl = null;
+    var bodyEl = null;
+    var titleEl = null;
+    var backBtn = null;
+
+    function build() {
+      overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+
+      modal = document.createElement("div");
+      modal.className = "modal";
+
+      var header = document.createElement("div");
+      header.className = "modal-header";
+
+      backBtn = document.createElement("button");
+      backBtn.type = "button";
+      backBtn.className = "modal-back";
+      backBtn.textContent = "← 返回目录";
+      backBtn.style.display = "none";
+      header.appendChild(backBtn);
+
+      titleEl = document.createElement("div");
+      titleEl.className = "modal-title";
+      titleEl.textContent = "人生小书";
+      header.appendChild(titleEl);
+
+      var closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "modal-close";
+      closeBtn.setAttribute("aria-label", "关闭");
+      closeBtn.textContent = "✕";
+      header.appendChild(closeBtn);
+
+      listEl = document.createElement("div");
+      listEl.className = "modal-list";
+
+      bodyEl = document.createElement("div");
+      bodyEl.className = "modal-body";
+      bodyEl.style.display = "none";
+
+      modal.appendChild(header);
+      modal.appendChild(listEl);
+      modal.appendChild(bodyEl);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      closeBtn.addEventListener("click", close);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) close();
+      });
+      backBtn.addEventListener("click", showList);
+    }
+
+    function renderList() {
+      listEl.innerHTML = "";
+      for (var i = 0; i < data.length; i++) {
+        (function (vol) {
+          var item = document.createElement("button");
+          item.type = "button";
+          item.className = "modal-item";
+
+          var name = document.createElement("div");
+          name.className = "modal-item-title";
+          name.textContent = vol.title;
+
+          var meta = document.createElement("div");
+          meta.className = "modal-item-meta";
+          meta.textContent = vol.date;
+
+          var desc = document.createElement("div");
+          desc.className = "modal-item-desc";
+          desc.textContent = vol.desc;
+
+          item.appendChild(name);
+          item.appendChild(meta);
+          item.appendChild(desc);
+          item.addEventListener("click", function () { showVolume(vol); });
+          listEl.appendChild(item);
+        })(data[i]);
+      }
+    }
+
+    function showList() {
+      listEl.style.display = "";
+      bodyEl.style.display = "none";
+      backBtn.style.display = "none";
+      titleEl.textContent = "人生小书";
+      listEl.scrollTop = 0;
+    }
+
+    function showVolume(vol) {
+      listEl.style.display = "none";
+      bodyEl.style.display = "";
+      backBtn.style.display = "";
+      titleEl.textContent = vol.title;
+      var html = vol.html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/, "");
+      bodyEl.innerHTML = html;
+      bodyEl.scrollTop = 0;
+    }
+
+    function open() {
+      if (!overlay) {
+        build();
+        renderList();
+      }
+      overlay.style.display = "flex";
+      document.body.style.overflow = "hidden";
+      showList();
+    }
+
+    function close() {
+      if (!overlay) return;
+      overlay.style.display = "none";
+      document.body.style.overflow = "";
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape" || e.key === "Esc") {
+        close();
+      }
+    }
+
+    card.addEventListener("click", open);
+    document.addEventListener("keydown", onKeydown);
+  }
+
   /* ===== 启动 ===== */
   document.addEventListener("DOMContentLoaded", function () {
     buildStars();
@@ -145,5 +280,6 @@
     updateClock();
     setInterval(updateClock, 1000);
     initLiquidGlass();
+    initBookModal();
   });
 })();
