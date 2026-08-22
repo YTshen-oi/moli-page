@@ -86,7 +86,16 @@ body::before {
 .hero {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 18px;
+}
+
+.logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  box-shadow: 0 0 30px rgba(200, 210, 255, 0.5);
+  margin-bottom: 6px;
 }
 
 .title {
