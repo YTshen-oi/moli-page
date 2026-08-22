@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨漓小站 · 后台</title>
+  <style>
+    :root {
+      --bg-top: #0b1026; --bg-bottom: #1a1f3d;
+      --text: #eef1ff; --muted: #9aa3d0;
+      --glass: rgba(255,255,255,.06); --border: rgba(200,210,255,.16);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      background: linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+      padding: 24px 16px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 20px; text-align: center; }
+    .card {
+      background: var(--glass); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; margin-bottom: 14px;
+    }
+    input, button {
+      font-family: inherit; font-size: 14px;
+      border-radius: 10px; outline: none;
+    }
+    input {
+      background: rgba(255,255,255,.08); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 12px; width: 100%;
+    }
+    button {
+      background: rgba(199,205,245,.15); border: 1px solid var(--border);
+      color: var(--text); padding: 7px 14px; cursor: pointer;
+    }
+    button:hover { background: rgba(199,205,245,.28); }
+    button.danger { border-color: rgba(255,120,120,.4); }
+    #login { display: flex; gap: 8px; }
+    .stats { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+    .stats b { color: var(--text); font-size: 18px; margin-right: 4px; }
+    .gb-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .gb-name { font-weight: bold; color: #c7cdf5; }
+    .gb-time { color: var(--muted); font-size: 12px; }
+    .gb-body { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.6; margin-bottom: 8px; }
+    .gb-actions { display: flex; gap: 8px; }
+    .hidden-tag { color: #ffb37a; font-size: 12px; margin-left: 8px; }
+    .msg { text-align: center; color: var(--muted); margin: 12px 0; }
+    .readers { color: var(--muted); font-size: 13px; line-height: 1.9; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🌙 墨漓小站 · 后台管理</h1>
+
+    <div class="card" id="loginCard">
+      <div id="login">
+        <input type="password" id="pwd" placeholder="管理密码" autofocus>
+        <button id="loginBtn">进入</button>
+      </div>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+
+    <div id="panel" style="display:none">
+      <div class="card" id="statsCard"><div class="stats">加载中…</div></div>
+      <div class="card">
+        <div style="margin-bottom:10px;color:var(--muted)">留言管理（最新的在最上面）</div>
+        <div id="gbList">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      var API = (window.SITE_CONFIG && window.SITE_CONFIG.API_BASE) || localStorage.getItem("admin_api_base") || "";
+      if (!API) API = prompt("后端 API 地址（如 https://moli-site-api.xxx.workers.dev）：") || "";
+      if (API) try { localStorage.setItem("admin_api_base", API); } catch (e) {}
+
+      var token = sessionStorage.getItem("admin_token") || "";
+      var $ = function (id) { return document.getElementById(id); };
+
+      function req(path, opts) {
+        opts = opts || {};
+        opts.headers = Object.assign({ "x-admin-token": token }, opts.headers || {});
+        return fetch(API + path, opts).then(function (r) { return r.json(); });
+      }
+
+      function esc(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      function loadAll() {
+        loadStats();
+        loadGuestbook();
+      }
+
+      function loadStats() {
+        req("/api/admin/stats").then(function (res) {
+          if (!res.ok) return;
+          var s = res.stats;
+          var readersHtml = s.readers.slice(0, 10).map(function (r) {
+            return "· " + esc(r.client) + " → " + esc(r.volumeId) +
+              "（" + new Date(r.updatedAt).toLocaleString("zh-CN", { hour12: false }) + "）";
+          }).join("<br>") || "· 暂无阅读记录";
+          $("statsCard").innerHTML =
+            '<div class="stats">' +
+            "<span><b>" + s.guestbookVisible + "</b>条可见留言</span>" +
+            "<span><b>" + s.guestbookTotal + "</b>条总留言</span>" +
+            "<span><b>" + s.readers.length + "</b>个阅读设备</span>" +
+            "</div><hr style='border:none;border-top:1px solid var(--border);margin:10px 0'>" +
+            '<div class="readers">最近阅读：<br>' + readersHtml + "</div>";
+        });
+      }
+
+      function loadGuestbook() {
+        req("/api/admin/guestbook").then(function (res) {
+          if (!res.ok) return;
+          var el = $("gbList");
+          if (!res.messages.length) { el.textContent = "还没有留言"; return; }
+          el.innerHTML = "";
+          res.messages.forEach(function (m) {
+            var card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML =
+              '<div class="gb-head"><span><span class="gb-name">' + esc(m.name) + "</span>" +
+              (m.hidden ? '<span class="hidden-tag">[已隐藏]</span>' : "") + "</span>" +
+              '<span class="gb-time">' + new Date(m.ts).toLocaleString("zh-CN", { hour12: false }) + "</span></div>" +
+              '<div class="gb-body">' + esc(m.message) + "</div>";
+            var actions = document.createElement("div");
+            actions.className = "gb-actions";
+            if (!m.hidden) {
+              var hideBtn = document.createElement("button");
+              hideBtn.textContent = "隐藏";
+              hideBtn.onclick = function () {
+                req("/api/admin/guestbook/" + m.id + "/hide", { method: "POST" }).then(loadGuestbook);
+              };
+              actions.appendChild(hideBtn);
+            }
+            var delBtn = document.createElement("button");
+            delBtn.className = "danger";
+            delBtn.textContent = "删除";
+            delBtn.onclick = function () {
+              if (confirm("确定删除这条留言？")) {
+                req("/api/admin/guestbook/" + m.id, { method: "DELETE" }).then(loadGuestbook);
+              }
+            };
+            actions.appendChild(delBtn);
+            card.appendChild(actions);
+            el.appendChild(card);
+          });
+        });
+      }
+
+      function tryLogin() {
+        var pwd = $("pwd").value;
+        $("loginMsg").textContent = "验证中…";
+        fetch(API + "/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pwd })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res.ok) {
+              token = res.token;
+              sessionStorage.setItem("admin_token", token);
+              $("loginCard").style.display = "none";
+              $("panel").style.display = "";
+              loadAll();
+            } else {
+              $("loginMsg").textContent = res.error || "密码不对";
+            }
+          })
+          .catch(function () { $("loginMsg").textContent = "连不上后端"; });
+      }
+
+      $("loginBtn").onclick = tryLogin;
+      $("pwd").addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
+
+      // 已有 token 则直接进
+      if (token) {
+        fetch(API + "/api/admin/stats", { headers: { "x-admin-token": token } })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res && res.ok) {
+              $("loginCard").style.display = "none";
+              $("panel").style.display = "";
+              loadAll();
+            }
+          })
+          .catch(function () {});
+      }
+    })();
+  </script>
+</body>
+</html>

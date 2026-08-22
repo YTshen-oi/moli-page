@@ -613,3 +613,93 @@ a.card:hover {
     padding: 16px 18px 26px;
   }
 }
+
+/* ===== 留言板 ===== */
+.gb-list {
+  padding-bottom: 8px;
+}
+
+.gb-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 40px 16px;
+  font-size: 14px;
+}
+
+.gb-item {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.gb-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.gb-item-name {
+  font-weight: bold;
+  color: var(--silver);
+  font-size: 14px;
+}
+
+.gb-item-time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.gb-item-body {
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.book-continue {
+  border-color: rgba(199, 205, 245, 0.45);
+  background: rgba(199, 205, 245, 0.1);
+}
+
+.gb-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(11, 16, 38, 0.55);
+  backdrop-filter: blur(10px);
+}
+
+.gb-input {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 8px 12px;
+  outline: none;
+  resize: none;
+}
+
+.gb-input:focus {
+  border-color: rgba(199, 205, 245, 0.5);
+}
+
+.gb-name {
+  width: 140px;
+}
+
+.gb-msg {
+  flex: 1 1 100%;
+  min-height: 60px;
+}
+
+.gb-send {
+  margin-left: auto;
+}

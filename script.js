@@ -242,6 +242,20 @@
       }
     }
 
+    function addContinueBtn() {
+      var lastId = null;
+      try { lastId = localStorage.getItem("moli_last_volume"); } catch (e) {}
+      if (!lastId) return;
+      var vol = data.find(function (v) { return v.id === lastId; });
+      if (!vol) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "book-item book-continue";
+      btn.innerHTML = '<div class="book-item-title">↻ 继续阅读：' + vol.title + "</div>";
+      btn.addEventListener("click", function () { showVolume(vol); });
+      listEl.insertBefore(btn, listEl.firstChild);
+    }
+
     function showList() {
       readerEl.classList.remove("show");
       mainEl.classList.add("show");
@@ -255,6 +269,7 @@
       bodyEl.scrollTop = 0;
       mainEl.classList.remove("show");
       readerEl.classList.add("show");
+      saveProgress(vol.id);
     }
 
     function open() {
@@ -262,6 +277,9 @@
         build();
         renderList();
       }
+      var old = view.querySelector(".book-continue");
+      if (old) old.remove();
+      addContinueBtn();
       isOpen = true;
       shell.classList.add("fade-out");
       setTimeout(function () {
@@ -304,6 +322,202 @@
     document.addEventListener("keydown", onKeydown);
   }
 
+  /* ===== 后端 API（留言板 + 阅读进度云同步） ===== */
+  var API_BASE = (window.SITE_CONFIG && window.SITE_CONFIG.API_BASE) || "";
+
+  function api(path, opts) {
+    if (!API_BASE) return Promise.reject(new Error("api not configured"));
+    return fetch(API_BASE + path, opts).then(function (r) { return r.json(); });
+  }
+
+  function getClientId() {
+    var cid = null;
+    try { cid = localStorage.getItem("moli_client_id"); } catch (e) {}
+    if (!cid) {
+      cid = "c-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem("moli_client_id", cid); } catch (e) {}
+    }
+    return cid;
+  }
+
+  function saveProgress(volumeId) {
+    try { localStorage.setItem("moli_last_volume", volumeId); } catch (e) {}
+    api("/api/progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client: getClientId(), volumeId: volumeId })
+    }).catch(function () {}); // 离线/未配置时静默降级
+  }
+
+  function restoreProgress(cb) {
+    api("/api/progress?client=" + encodeURIComponent(getClientId()))
+      .then(function (res) {
+        if (res && res.ok && res.progress && res.progress.volumeId) cb(res.progress.volumeId);
+      })
+      .catch(function () {});
+  }
+
+  /* ===== 留言板全屏视图 ===== */
+  function initGuestbookView() {
+    var card = document.getElementById("guestbook-card");
+    if (!card) return;
+
+    var shell = document.querySelector(".shell");
+    var view = null, listEl = null, inputEl = null, nameEl = null, sendBtn = null;
+    var backBtn = null, isOpen = false, sending = false;
+
+    function build() {
+      view = document.createElement("div");
+      view.className = "book-view";
+
+      var main = document.createElement("div");
+      main.className = "book-main show";
+
+      var topbar = document.createElement("div");
+      topbar.className = "book-topbar";
+
+      backBtn = document.createElement("button");
+      backBtn.type = "button";
+      backBtn.className = "book-btn";
+      backBtn.textContent = "← 返回主页";
+      topbar.appendChild(backBtn);
+
+      var title = document.createElement("div");
+      title.className = "book-title";
+      title.textContent = "留言板";
+      topbar.appendChild(title);
+
+      listEl = document.createElement("div");
+      listEl.className = "book-list gb-list";
+
+      var form = document.createElement("div");
+      form.className = "gb-form";
+
+      nameEl = document.createElement("input");
+      nameEl.className = "gb-input gb-name";
+      nameEl.maxLength = 20;
+      nameEl.placeholder = "称呼（可留空）";
+      form.appendChild(nameEl);
+
+      inputEl = document.createElement("textarea");
+      inputEl.className = "gb-input gb-msg";
+      inputEl.maxLength = 500;
+      inputEl.placeholder = "写点什么…";
+      form.appendChild(inputEl);
+
+      sendBtn = document.createElement("button");
+      sendBtn.type = "button";
+      sendBtn.className = "book-btn gb-send";
+      sendBtn.textContent = "送出 ✦";
+      form.appendChild(sendBtn);
+
+      main.appendChild(topbar);
+      main.appendChild(listEl);
+      main.appendChild(form);
+      view.appendChild(main);
+      document.body.appendChild(view);
+
+      backBtn.addEventListener("click", close);
+      sendBtn.addEventListener("click", send);
+    }
+
+    function esc(s) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function render(messages) {
+      listEl.innerHTML = "";
+      if (!messages.length) {
+        var empty = document.createElement("div");
+        empty.className = "gb-empty";
+        empty.textContent = API_BASE ? "还没有人留言，来做第一个吧" : "留言板还没接上后端，先占个位 (´･ω･`)";
+        listEl.appendChild(empty);
+        return;
+      }
+      messages.forEach(function (msg) {
+        var item = document.createElement("div");
+        item.className = "gb-item";
+        var head = document.createElement("div");
+        head.className = "gb-item-head";
+        var who = document.createElement("span");
+        who.className = "gb-item-name";
+        who.textContent = msg.name || "匿名";
+        var when = document.createElement("span");
+        when.className = "gb-item-time";
+        when.textContent = new Date(msg.ts).toLocaleString("zh-CN", { hour12: false });
+        head.appendChild(who);
+        head.appendChild(when);
+        var body = document.createElement("div");
+        body.className = "gb-item-body";
+        body.textContent = msg.message;
+        item.appendChild(head);
+        item.appendChild(body);
+        listEl.appendChild(item);
+      });
+    }
+
+    function load() {
+      if (!API_BASE) { render([]); return; }
+      api("/api/guestbook")
+        .then(function (res) { if (res && res.ok) render(res.messages); })
+        .catch(function () { render([]); });
+    }
+
+    function send() {
+      if (sending) return;
+      var message = inputEl.value.trim();
+      if (!message) return;
+      sending = true;
+      sendBtn.textContent = "送出中…";
+      api("/api/guestbook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameEl.value.trim(), message: message })
+      })
+        .then(function (res) {
+          if (res && res.ok) {
+            inputEl.value = "";
+            load();
+          } else {
+            alert((res && res.error) || "发送失败");
+          }
+        })
+        .catch(function () { alert("后端还没配置或不可达"); })
+        .finally(function () {
+          sending = false;
+          sendBtn.textContent = "送出 ✦";
+        });
+    }
+
+    function open() {
+      if (!view) build();
+      isOpen = true;
+      shell.classList.add("fade-out");
+      setTimeout(function () {
+        if (!isOpen) return;
+        shell.style.display = "none";
+        view.classList.remove("leaving");
+        view.classList.add("show");
+        load();
+        document.body.style.overflow = "hidden";
+      }, 400);
+    }
+
+    function close() {
+      if (!view) return;
+      isOpen = false;
+      view.classList.remove("show");
+      view.classList.add("leaving");
+      document.body.style.overflow = "";
+      shell.style.display = "";
+      void shell.offsetWidth;
+      shell.classList.remove("fade-out");
+      setTimeout(function () { view.classList.remove("leaving"); }, 400);
+    }
+
+    card.addEventListener("click", open);
+  }
+
   /* ===== 启动 ===== */
   document.addEventListener("DOMContentLoaded", function () {
     buildStars();
@@ -312,5 +526,6 @@
     setInterval(updateClock, 1000);
     initLiquidGlass();
     initBookView();
+    initGuestbookView();
   });
 })();
