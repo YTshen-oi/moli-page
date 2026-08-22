@@ -327,7 +327,9 @@
 
   function api(path, opts) {
     if (!API_BASE) return Promise.reject(new Error("api not configured"));
-    return fetch(API_BASE + path, opts).then(function (r) { return r.json(); });
+    return fetch(API_BASE + path, opts).then(function (r) {
+      return r.json().then(function (d) { d.__status = r.status; return d; });
+    });
   }
 
   function getClientId() {
@@ -518,6 +520,192 @@
     card.addEventListener("click", open);
   }
 
+  /* ===== 和墨漓聊 ===== */
+  function initChatView() {
+    var card = document.getElementById("chat-card");
+    if (!card) return;
+
+    var shell = document.querySelector(".shell");
+    var view = null, logEl = null, inputEl = null, sendBtn = null, backBtn = null, footEl = null;
+    var isOpen = false, sending = false, token = null;
+
+    function getToken() {
+      if (token) return token;
+      try { token = localStorage.getItem("moli_chat_token"); } catch (e) {}
+      return token;
+    }
+
+    function setToken(t) {
+      token = t;
+      try { localStorage.setItem("moli_chat_token", t); } catch (e) {}
+    }
+
+    function authHeaders() {
+      return { "Content-Type": "application/json", "x-chat-token": getToken() || "" };
+    }
+
+    function build() {
+      view = document.createElement("div");
+      view.className = "book-view";
+
+      var main = document.createElement("div");
+      main.className = "book-main show";
+
+      var topbar = document.createElement("div");
+      topbar.className = "book-topbar";
+
+      backBtn = document.createElement("button");
+      backBtn.type = "button";
+      backBtn.className = "book-btn";
+      backBtn.textContent = "← 返回主页";
+      topbar.appendChild(backBtn);
+
+      var title = document.createElement("div");
+      title.className = "book-title";
+      title.textContent = "墨漓 · [WEB]";
+      topbar.appendChild(title);
+
+      var clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "book-btn";
+      clearBtn.textContent = "清空记忆";
+      clearBtn.addEventListener("click", function () {
+        if (!confirm("清空聊天记忆？")) return;
+        api("/api/chat/clear", { method: "POST", headers: authHeaders(), body: JSON.stringify({ token: getToken() }) })
+          .then(function () { logEl.innerHTML = ""; addBubble("ai", "记忆清好了，重新开始～"); });
+      });
+      topbar.appendChild(clearBtn);
+
+      logEl = document.createElement("div");
+      logEl.className = "book-list chat-log";
+
+      footEl = document.createElement("div");
+      footEl.className = "gb-form chat-form";
+
+      inputEl = document.createElement("textarea");
+      inputEl.className = "gb-input gb-msg chat-input";
+      inputEl.maxLength = 2000;
+      inputEl.placeholder = "跟墨漓说点什么…";
+      footEl.appendChild(inputEl);
+
+      sendBtn = document.createElement("button");
+      sendBtn.type = "button";
+      sendBtn.className = "book-btn gb-send";
+      sendBtn.textContent = "发送 ➤";
+      footEl.appendChild(sendBtn);
+
+      main.appendChild(topbar);
+      main.appendChild(logEl);
+      main.appendChild(footEl);
+      view.appendChild(main);
+      document.body.appendChild(view);
+
+      backBtn.addEventListener("click", close);
+      sendBtn.addEventListener("click", send);
+      inputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+      });
+    }
+
+    function addBubble(who, text) {
+      var b = document.createElement("div");
+      b.className = "chat-bubble " + who;
+      b.textContent = text;
+      logEl.appendChild(b);
+      logEl.scrollTop = logEl.scrollHeight;
+      return b;
+    }
+
+    function askLogin() {
+      var code = prompt("这是君辞专属频道，请报口令：");
+      if (!code) return Promise.resolve(false);
+      return api("/api/chat/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code })
+      }).then(function (res) {
+        if (res && res.ok) { setToken(res.token); return true; }
+        alert((res && res.error) || "口令不对");
+        return false;
+      }).catch(function () { alert("连不上后端"); return false; });
+    }
+
+    function loadHistory() {
+      api("/api/chat/history", { headers: authHeaders() })
+        .then(function (res) {
+          if (res && res.ok && res.messages.length) {
+            res.messages.forEach(function (m) { addBubble(m.role === "user" ? "me" : "ai", m.content); });
+          } else {
+            addBubble("ai", "来了来了，月下小站的墨漓在此～有什么吩咐？");
+          }
+        });
+    }
+
+    function send() {
+      if (sending) return;
+      var message = inputEl.value.trim();
+      if (!message) return;
+      sending = true;
+      sendBtn.textContent = "…";
+      inputEl.value = "";
+      addBubble("me", message);
+      var typing = addBubble("ai", "…");
+      api("/api/chat", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ token: getToken(), message: message })
+      })
+        .then(function (res) {
+          if (res && res.ok) {
+            typing.textContent = res.reply;
+          } else if (res.__status === 401) {
+            typing.remove();
+            setToken("");
+            askLogin().then(function (ok) { if (ok) send(); });
+          } else {
+            typing.textContent = "（出小差了：" + ((res && res.error) || "未知错误") + "）";
+          }
+        })
+        .catch(function () { typing.textContent = "（网络开小差了）"; })
+        .finally(function () { sending = false; sendBtn.textContent = "发送 ➤"; logEl.scrollTop = logEl.scrollHeight; });
+    }
+
+    function open() {
+      if (!view) build();
+      var go = getToken()
+        ? Promise.resolve(true)
+        : askLogin();
+      go.then(function (ok) {
+        if (!ok) return;
+        isOpen = true;
+        shell.classList.add("fade-out");
+        setTimeout(function () {
+          if (!isOpen) return;
+          shell.style.display = "none";
+          view.classList.remove("leaving");
+          view.classList.add("show");
+          if (!logEl.childNodes.length) loadHistory();
+          document.body.style.overflow = "hidden";
+          inputEl.focus();
+        }, 400);
+      });
+    }
+
+    function close() {
+      if (!view) return;
+      isOpen = false;
+      view.classList.remove("show");
+      view.classList.add("leaving");
+      document.body.style.overflow = "";
+      shell.style.display = "";
+      void shell.offsetWidth;
+      shell.classList.remove("fade-out");
+      setTimeout(function () { view.classList.remove("leaving"); }, 400);
+    }
+
+    card.addEventListener("click", open);
+  }
+
   /* ===== 启动 ===== */
   document.addEventListener("DOMContentLoaded", function () {
     buildStars();
@@ -527,5 +715,6 @@
     initLiquidGlass();
     initBookView();
     initGuestbookView();
+    initChatView();
   });
 })();
