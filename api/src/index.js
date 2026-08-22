@@ -289,6 +289,64 @@ export default {
       return json(request, { ok: true });
     }
 
+    // ----- file upload (chat attachment) -----
+    const FILE_MAX = 8 * 1024 * 1024; // 8MB
+
+    if (path === "/api/chat/upload" && method === "POST") {
+      const token = request.headers.get("x-chat-token") || "";
+      const expected = await makeToken(env.CHAT_CODE, "chat-v1");
+      if (token !== expected) return json(request, { ok: false, error: "unauthorized" }, 401);
+
+      const ct = request.headers.get("content-type") || "";
+      if (!ct.includes("multipart/form-data")) {
+        return json(request, { ok: false, error: "需要 multipart 上传" }, 400);
+      }
+      const form = await request.formData();
+      const file = form.get("file");
+      if (!file || typeof file === "string") {
+        return json(request, { ok: false, error: "没有文件" }, 400);
+      }
+      if (file.size > FILE_MAX) {
+        return json(request, { ok: false, error: "文件太大，上限 8MB" }, 413);
+      }
+
+      const buf = await file.arrayBuffer();
+      let b64 = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      b64 = btoa(b64);
+
+      const id = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+      const meta = {
+        name: String(file.name || "file").slice(0, 120),
+        type: String(file.type || "application/octet-stream").slice(0, 100),
+        size: file.size,
+        data: b64,
+      };
+      await env.BOOK_KV.put("file:" + id, JSON.stringify(meta), { expirationTtl: 7 * 86400 });
+      return json(request, { ok: true, id, name: meta.name, size: meta.size, type: meta.type });
+    }
+
+    let fm = path.match(/^\/api\/file\/([\w]+)$/);
+    if (fm && method === "GET") {
+      const raw = await env.BOOK_KV.get("file:" + fm[1]);
+      if (!raw) return new Response("not found", { status: 404 });
+      const meta = JSON.parse(raw);
+      const bin = atob(meta.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Response(bytes, {
+        headers: {
+          "Content-Type": meta.type,
+          "Content-Disposition": "attachment; filename*=UTF-8''" + encodeURIComponent(meta.name),
+          "Cache-Control": "private, max-age=3600",
+        },
+      });
+    }
+
     return json(request, { ok: false, error: "not found" }, 404);
   },
 };

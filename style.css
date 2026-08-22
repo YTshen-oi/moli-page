@@ -744,3 +744,14 @@ a.card:hover {
 .chat-input {
   min-height: 48px;
 }
+
+/* ===== 聊天文件 ===== */
+.chat-attach {
+  font-size: 16px;
+}
+
+.chat-file a {
+  color: var(--silver);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(199, 205, 245, 0.5);
+}

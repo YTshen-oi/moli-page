@@ -591,6 +591,17 @@
       inputEl.placeholder = "跟墨漓说点什么…";
       footEl.appendChild(inputEl);
 
+      var attachBtn = document.createElement("button");
+      attachBtn.type = "button";
+      attachBtn.className = "book-btn chat-attach";
+      attachBtn.textContent = "📎";
+      footEl.appendChild(attachBtn);
+
+      var fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.style.display = "none";
+      footEl.appendChild(fileInput);
+
       sendBtn = document.createElement("button");
       sendBtn.type = "button";
       sendBtn.className = "book-btn gb-send";
@@ -605,6 +616,11 @@
 
       backBtn.addEventListener("click", close);
       sendBtn.addEventListener("click", send);
+      attachBtn.addEventListener("click", function () { fileInput.click(); });
+      fileInput.addEventListener("change", function () {
+        if (fileInput.files && fileInput.files[0]) sendFile(fileInput.files[0]);
+        fileInput.value = "";
+      });
       inputEl.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
       });
@@ -671,6 +687,61 @@
         })
         .catch(function () { typing.textContent = "（网络开小差了）"; })
         .finally(function () { sending = false; sendBtn.textContent = "发送 ➤"; logEl.scrollTop = logEl.scrollHeight; });
+    }
+
+    function fmtSize(n) {
+      if (n > 1048576) return (n / 1048576).toFixed(1) + "MB";
+      if (n > 1024) return Math.round(n / 1024) + "KB";
+      return n + "B";
+    }
+
+    function addFileBubble(name, size, fileId) {
+      var b = document.createElement("div");
+      b.className = "chat-bubble me chat-file";
+      var a = document.createElement("a");
+      a.href = API_BASE + "/api/file/" + fileId;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = "📎 " + name + "（" + fmtSize(size) + "）";
+      b.appendChild(a);
+      logEl.appendChild(b);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function sendFile(file) {
+      if (sending) return;
+      if (!getToken()) { askLogin().then(function (ok) { if (ok) sendFile(file); }); return; }
+      sending = true;
+      var note = addBubble("ai", "上传中… " + file.name);
+      var fd = new FormData();
+      fd.append("file", file);
+      fetch(API_BASE + "/api/chat/upload", {
+        method: "POST",
+        headers: { "x-chat-token": getToken() },
+        body: fd
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res && res.ok) {
+            note.remove();
+            addFileBubble(res.name, res.size, res.id);
+            // 让墨漓知道有文件进来
+            return api("/api/chat", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({
+                token: getToken(),
+                message: "[WEB文件] 我传了个文件：「" + res.name + "」（" + fmtSize(res.size) + "），下载链接：" + API_BASE + "/api/file/" + res.id
+              })
+            }).then(function (res2) {
+              if (res2 && res2.ok) addBubble("ai", res2.reply);
+            });
+          } else {
+            note.textContent = "（上传失败：" + ((res && res.error) || "未知") + "）";
+          }
+        })
+        .catch(function () { note.textContent = "（上传失败：网络问题）"; })
+        .finally(function () { sending = false; });
     }
 
     function open() {
