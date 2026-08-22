@@ -531,13 +531,16 @@
 
     function getToken() {
       if (token) return token;
-      try { token = localStorage.getItem("moli_chat_token"); } catch (e) {}
+      try { token = sessionStorage.getItem("moli_chat_token"); } catch (e) {}
       return token;
     }
 
     function setToken(t) {
       token = t;
-      try { localStorage.setItem("moli_chat_token", t); } catch (e) {}
+      try {
+        if (t) sessionStorage.setItem("moli_chat_token", t);
+        else sessionStorage.removeItem("moli_chat_token");
+      } catch (e) {}
     }
 
     function authHeaders() {
